@@ -78,7 +78,7 @@ class TagManager
             $loadedNames[] = $tag->getName();
         }
 
-        $missingNames = array_diff($names, $loadedNames);
+        $missingNames = array_udiff($names, $loadedNames, 'strcasecmp');
         if (sizeof($missingNames)) {
             foreach ($missingNames as $name) {
                 $tag = $this->createTag($name);
@@ -104,7 +104,7 @@ class TagManager
         $newTags = $this->getTagObjectsForResource($resource);
         $tagsToAdd = $newTags;
 
-        if ($oldTags != null and is_array($oldTags)) {
+        if ($oldTags !== null and is_array($oldTags) and !empty($oldTags)) {
             $tagsToRemove = array();
 
             foreach ($oldTags as $oldTag) {
@@ -123,6 +123,10 @@ class TagManager
                     ->delete($this->taggingClass, 't')
                     ->where('t.tag_id')
                     ->where($builder->expr()->in('t.tag', $tagsToRemove))
+                    ->andWhere('t.resourceType = :resourceType')
+                    ->setParameter('resourceType', $resource->getTaggableType())
+                    ->andWhere('t.resourceId = :resourceId')
+                    ->setParameter('resourceId', $resource->getTaggableId())
                     ->getQuery()
                     ->getResult()
                 ;
@@ -134,7 +138,9 @@ class TagManager
             $this->em->persist($this->createTagging($tag, $resource));
         }
 
-        $this->em->flush();
+        if (count($tagsToAdd)) {
+            $this->em->flush();
+        }
     }
 
     /**
